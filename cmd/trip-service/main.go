@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os/signal"
@@ -11,68 +12,95 @@ import (
 	"github.com/Yolanesso/avito-labs/internal/config"
 	"github.com/Yolanesso/avito-labs/internal/database"
 	"github.com/Yolanesso/avito-labs/internal/httpserver"
+	"github.com/Yolanesso/avito-labs/internal/infra/telemetry"
 	"github.com/Yolanesso/avito-labs/internal/repository"
 	"github.com/Yolanesso/avito-labs/internal/service"
 	"github.com/Yolanesso/avito-labs/internal/txmanager"
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("load config: %v", err)
+		return fmt.Errorf("load config: %w", err)
 	}
+
+	logger, err := telemetry.NewLogger(cfg.LogLevel)
+	if err != nil {
+		return fmt.Errorf("init logger: %w", err)
+	}
+
+	shutdownTracing, err := telemetry.InitTracing(context.Background())
+	if err != nil {
+		return fmt.Errorf("init tracing: %w", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+		defer cancel()
+
+		if err := shutdownTracing(ctx); err != nil {
+			logger.Error("shutdown tracing", "error", err)
+		}
+	}()
+
+	shutdownMetrics, err := telemetry.InitMetrics(context.Background())
+	if err != nil {
+		return fmt.Errorf("init metrics: %w", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+		defer cancel()
+
+		if err := shutdownMetrics(ctx); err != nil {
+			logger.Error("shutdown metrics", "error", err)
+		}
+	}()
 
 	connectContext, cancelConnect := context.WithTimeout(
 		context.Background(),
 		cfg.Database.ConnectTimeout,
 	)
 
-	pool, err := database.NewPool(
-		connectContext,
-		cfg.Database,
-	)
-
+	pool, err := database.NewPool(connectContext, cfg.Database)
 	cancelConnect()
-
 	if err != nil {
-		log.Fatalf("connect to database: %v", err)
+		return fmt.Errorf("connect to database: %w", err)
 	}
-
 	defer pool.Close()
 
-	log.Printf("connected to PostgreSQL")
+	logger.Info("connected to PostgreSQL")
 
 	tripRepository := repository.NewTripRepository(
 		pool,
 		cfg.Database.QueryTimeout,
 	)
-
 	transactionManager := txmanager.New(pool)
-
 	tripService := service.NewTripService(
 		tripRepository,
 		transactionManager,
 	)
+
+	tripMetrics, err := telemetry.NewTripMetrics(logger)
+	if err != nil {
+		return fmt.Errorf("init trip metrics: %w", err)
+	}
+	tripService.SetMetrics(tripMetrics)
 
 	handler := httpserver.NewHandler(
 		pool.Ping,
 		cfg.Database.QueryTimeout,
 		tripService,
 	)
-
-	server := httpserver.New(
-		cfg.HTTPAddr,
-		handler,
-	)
+	server := httpserver.New(cfg.HTTPAddr, handler, logger)
 
 	serverErrors := make(chan error, 1)
-
 	go func() {
-		log.Printf(
-			"trip-service listening on %s",
-			cfg.HTTPAddr,
-		)
-
+		logger.Info("trip-service listening", "addr", cfg.HTTPAddr)
 		serverErrors <- server.ListenAndServe()
 	}()
 
@@ -86,11 +114,11 @@ func main() {
 	select {
 	case err := <-serverErrors:
 		if !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("HTTP server: %v", err)
+			return fmt.Errorf("HTTP server: %w", err)
 		}
 
 	case <-signalContext.Done():
-		log.Printf("shutdown signal received")
+		logger.Info("shutdown signal received")
 
 		shutdownContext, cancelShutdown := context.WithTimeout(
 			context.Background(),
@@ -98,14 +126,11 @@ func main() {
 		)
 		defer cancelShutdown()
 
-		err := server.Shutdown(shutdownContext)
-		if err != nil {
-			log.Printf(
-				"graceful shutdown failed: %v",
-				err,
-			)
+		if err := server.Shutdown(shutdownContext); err != nil {
+			logger.Error("graceful shutdown failed", "error", err)
 		}
 	}
 
-	log.Printf("trip-service stopped")
+	logger.Info("trip-service stopped")
+	return nil
 }

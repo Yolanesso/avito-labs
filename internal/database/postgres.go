@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Yolanesso/avito-labs/internal/config"
@@ -21,6 +22,9 @@ func NewPool(
 	poolConfig.MaxConns = cfg.MaxConns
 	poolConfig.MinConns = cfg.MinConns
 	poolConfig.MaxConnLifetime = cfg.MaxConnLifetime
+	poolConfig.ConnConfig.Tracer = otelpgx.NewTracer(
+		otelpgx.WithMetricOperationName(otelpgx.SQLOperationName),
+	)
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {

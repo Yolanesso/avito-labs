@@ -2,33 +2,31 @@ package service
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/Yolanesso/avito-labs/internal/model"
-	"github.com/Yolanesso/avito-labs/internal/repository"
-	"github.com/Yolanesso/avito-labs/internal/txmanager"
+	"github.com/Yolanesso/avito-labs/internal/usecase/trip/create"
+	"github.com/Yolanesso/avito-labs/internal/usecase/trip/finish"
+	"github.com/Yolanesso/avito-labs/internal/usecase/trip/get"
 )
 
-type CreateTripInput struct {
-	UserID   uuid.UUID
-	DriverID uuid.UUID
+type CreateTripInput = create.Input
 
-	StartPoint model.Coordinates
-	EndPoint   model.Coordinates
-
-	Price int64
+type tripMetrics interface {
+	Created(context.Context, uuid.UUID)
+	Completed(context.Context, uuid.UUID)
 }
 
 type TripService struct {
-	repository *repository.TripRepository
-	txManager  txmanager.TxManager
+	repository tripRepository
+	txManager  txManager
+	metrics    tripMetrics
 }
 
 func NewTripService(
-	repository *repository.TripRepository,
-	txManager txmanager.TxManager,
+	repository tripRepository,
+	txManager txManager,
 ) *TripService {
 	return &TripService{
 		repository: repository,
@@ -36,91 +34,27 @@ func NewTripService(
 	}
 }
 
+func (s *TripService) SetMetrics(metrics tripMetrics) {
+	s.metrics = metrics
+}
+
 func (s *TripService) Create(
 	ctx context.Context,
 	input CreateTripInput,
 ) (model.Trip, error) {
-	now := time.Now().UTC()
-
-	trip := model.Trip{
-		ID:       uuid.New(),
-		UserID:   input.UserID,
-		DriverID: input.DriverID,
-
-		StartPoint: input.StartPoint,
-		EndPoint:   input.EndPoint,
-
-		Price:  input.Price,
-		Status: model.TripStatusActive,
-
-		StartedAt:  now,
-		FinishedAt: nil,
-		CreatedAt:  now,
-		UpdatedAt:  now,
-	}
-
-	err := s.txManager.Do(
-		ctx,
-		func(ctx context.Context) error {
-			err := s.repository.Create(ctx, trip)
-			if err != nil {
-				return err
-			}
-
-			err = s.repository.AddCreatedHistory(ctx, trip.ID)
-			if err != nil {
-				return err
-			}
-
-			return nil
-		},
-	)
-	if err != nil {
-		return model.Trip{}, err
-	}
-
-	return trip, nil
+	return create.New(s.repository, s.txManager, s.metrics).Run(ctx, input)
 }
 
 func (s *TripService) GetByID(
 	ctx context.Context,
 	tripID uuid.UUID,
 ) (model.Trip, error) {
-	return s.repository.GetByID(ctx, tripID)
+	return get.New(s.repository).Run(ctx, tripID)
 }
 
 func (s *TripService) Finish(
 	ctx context.Context,
 	tripID uuid.UUID,
 ) (model.Trip, error) {
-	finishedAt := time.Now().UTC()
-
-	var trip model.Trip
-
-	err := s.txManager.Do(
-		ctx,
-		func(ctx context.Context) error {
-			err := s.repository.Finish(ctx, tripID, finishedAt)
-			if err != nil {
-				return err
-			}
-
-			err = s.repository.AddCompletedHistory(ctx, tripID)
-			if err != nil {
-				return err
-			}
-
-			trip, err = s.repository.GetByID(ctx, tripID)
-			if err != nil {
-				return err
-			}
-
-			return nil
-		},
-	)
-	if err != nil {
-		return model.Trip{}, err
-	}
-
-	return trip, nil
+	return finish.New(s.repository, s.txManager, s.metrics).Run(ctx, tripID)
 }
