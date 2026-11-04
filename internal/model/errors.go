@@ -1,9 +1,9 @@
 package model
 
-import "errors"
+import "github.com/Yolanesso/avito-labs/internal/domain/trip"
 
 var (
-	ErrTripNotFound  = errors.New("trip not found")
-	ErrTripCompleted = errors.New("trip already completed")
-	ErrDriverBusy    = errors.New("driver already has an active trip")
+	ErrTripNotFound  = trip.ErrTripNotFound
+	ErrTripCompleted = trip.ErrTripCompleted
+	ErrDriverBusy    = trip.ErrDriverBusy
 )

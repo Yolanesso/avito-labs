@@ -2,12 +2,14 @@ package httpserver
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
 	api "github.com/Yolanesso/avito-labs/internal/generated"
-	"github.com/Yolanesso/avito-labs/internal/service"
+	"github.com/Yolanesso/avito-labs/internal/httpserver/response"
+	tripcreate "github.com/Yolanesso/avito-labs/internal/httpserver/trip/create"
+	tripfinish "github.com/Yolanesso/avito-labs/internal/httpserver/trip/finish"
+	tripget "github.com/Yolanesso/avito-labs/internal/httpserver/trip/get"
 )
 
 type Handler struct {
@@ -15,18 +17,22 @@ type Handler struct {
 
 	pingDatabase func(context.Context) error
 	queryTimeout time.Duration
-	tripService  *service.TripService
+	create       *tripcreate.Handler
+	get          *tripget.Handler
+	finish       *tripfinish.Handler
 }
 
 func NewHandler(
 	pingDatabase func(context.Context) error,
 	queryTimeout time.Duration,
-	tripService *service.TripService,
+	tripService tripService,
 ) *Handler {
 	return &Handler{
 		pingDatabase: pingDatabase,
 		queryTimeout: queryTimeout,
-		tripService:  tripService,
+		create:       tripcreate.New(tripService),
+		get:          tripget.New(tripService),
+		finish:       tripfinish.New(tripService),
 	}
 }
 
@@ -34,7 +40,7 @@ func (h *Handler) Health(
 	w http.ResponseWriter,
 	_ *http.Request,
 ) {
-	writeJSON(w, http.StatusOK, api.HealthResponse{
+	response.JSON(w, http.StatusOK, api.HealthResponse{
 		Status: api.Ok,
 	})
 }
@@ -51,7 +57,7 @@ func (h *Handler) Ready(
 
 	err := h.pingDatabase(ctx)
 	if err != nil {
-		writeJSON(
+		response.JSON(
 			w,
 			http.StatusServiceUnavailable,
 			api.HealthResponse{
@@ -61,21 +67,7 @@ func (h *Handler) Ready(
 		return
 	}
 
-	writeJSON(w, http.StatusOK, api.HealthResponse{
+	response.JSON(w, http.StatusOK, api.HealthResponse{
 		Status: api.Ok,
 	})
-}
-
-func writeJSON(
-	w http.ResponseWriter,
-	status int,
-	value any,
-) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-
-	err := json.NewEncoder(w).Encode(value)
-	if err != nil {
-		return
-	}
 }
