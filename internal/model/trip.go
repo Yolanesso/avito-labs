@@ -1,37 +1,15 @@
 package model
 
-import (
-	"time"
+import "github.com/Yolanesso/avito-labs/internal/domain/trip"
 
-	"github.com/google/uuid"
-)
-
-type TripStatus string
+type TripStatus = trip.Status
 
 const (
-	TripStatusActive    TripStatus = "active"
-	TripStatusCompleted TripStatus = "completed"
+	TripStatusActive    = trip.StatusActive
+	TripStatusCompleted = trip.StatusCompleted
 )
 
-type Coordinates struct {
-	Latitude  float64
-	Longitude float64
-}
-
-type Trip struct {
-	ID       uuid.UUID
-	UserID   uuid.UUID
-	DriverID uuid.UUID
-
-	StartPoint Coordinates
-	EndPoint   Coordinates
-
-	Price  int64
-	Status TripStatus
-
-	StartedAt  time.Time
-	FinishedAt *time.Time
-
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
+type (
+	Coordinates = trip.Coordinates
+	Trip        = trip.Trip
+)
