@@ -2,21 +2,22 @@
 
 generate:
 	go tool oapi-codegen --config oapi-codegen.yaml contracts/openapi/trip-service.openapi.yaml
+	go generate ./internal/...
 
 generate-mocks:
-	go generate ./internal/usecase/trip/... ./internal/httpserver/trip/...
+	go generate ./internal/...
 
 migrate:
-	set -a; . ./.env; set +a; go tool goose -dir migrations postgres "$${DATABASE_URL}" up
+	set -a; if [ -f .env ]; then . ./.env; fi; set +a; go tool goose -dir migrations postgres "$${DATABASE_URL}" up
 
 migrate-down:
-	set -a; . ./.env; set +a; go tool goose -dir migrations postgres "$${DATABASE_URL}" down
+	set -a; if [ -f .env ]; then . ./.env; fi; set +a; go tool goose -dir migrations postgres "$${DATABASE_URL}" down
 
 migrate-status:
-	set -a; . ./.env; set +a; go tool goose -dir migrations postgres "$${DATABASE_URL}" status
+	set -a; if [ -f .env ]; then . ./.env; fi; set +a; go tool goose -dir migrations postgres "$${DATABASE_URL}" status
 
 run:
-	set -a; . ./.env; set +a; go run ./cmd/trip-service
+	set -a; if [ -f .env ]; then . ./.env; fi; set +a; go run ./cmd/trip-service
 
 lint:
 	"$$(go env GOPATH)/bin/golangci-lint" run ./...
@@ -25,4 +26,4 @@ test:
 	go test -race -cover ./...
 
 test-integration:
-	set -a; . ./.env; set +a; go test -race -tags=integration ./...
+	set -a; if [ -f .env ]; then . ./.env; fi; set +a; go test -race -tags=integration ./...

@@ -34,6 +34,7 @@ func (r *TripRepository) GetByID(
 		"finished_at",
 		"created_at",
 		"updated_at",
+		"last_position_at",
 	)
 
 	builder = builder.From("trips")
@@ -64,6 +65,7 @@ func (r *TripRepository) GetByID(
 		&trip.FinishedAt,
 		&trip.CreatedAt,
 		&trip.UpdatedAt,
+		&trip.LastPositionAt,
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {

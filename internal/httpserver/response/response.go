@@ -2,6 +2,7 @@ package response
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	api "github.com/Yolanesso/avito-labs/internal/generated"
@@ -35,6 +36,9 @@ func InvalidRequest(w http.ResponseWriter, r *http.Request, detail string) {
 
 func DomainError(w http.ResponseWriter, r *http.Request, err error) {
 	status, problem := domainerror.Problem(err)
+	if status == http.StatusInternalServerError {
+		slog.ErrorContext(r.Context(), "request operation failed", "error", err)
+	}
 	instance := r.URL.Path
 	problem.Instance = &instance
 
@@ -60,6 +64,6 @@ func TripToAPI(value model.Trip) api.Trip {
 		Status:         api.TripStatus(value.Status),
 		StartedAt:      value.StartedAt,
 		FinishedAt:     value.FinishedAt,
-		LastPositionAt: nil,
+		LastPositionAt: value.LastPositionAt,
 	}
 }

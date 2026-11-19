@@ -12,10 +12,18 @@ import (
 	"github.com/Yolanesso/avito-labs/internal/httpserver/response"
 )
 
+type Timeouts struct {
+	ReadTimeout       time.Duration
+	ReadHeaderTimeout time.Duration
+	WriteTimeout      time.Duration
+	IdleTimeout       time.Duration
+}
+
 func New(
 	addr string,
 	handler api.ServerInterface,
 	logger *slog.Logger,
+	timeouts Timeouts,
 ) *http.Server {
 	router := chi.NewRouter()
 
@@ -42,9 +50,9 @@ func New(
 	return &http.Server{
 		Addr:              addr,
 		Handler:           router,
-		ReadTimeout:       10 * time.Second,
-		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      10 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		ReadTimeout:       timeouts.ReadTimeout,
+		ReadHeaderTimeout: timeouts.ReadHeaderTimeout,
+		WriteTimeout:      timeouts.WriteTimeout,
+		IdleTimeout:       timeouts.IdleTimeout,
 	}
 }

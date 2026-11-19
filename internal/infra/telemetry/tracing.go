@@ -8,6 +8,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
@@ -31,6 +32,11 @@ func InitTracing(ctx context.Context) (func(context.Context) error, error) {
 
 	res, err := resource.New(
 		ctx,
+		resource.WithAttributes(
+			attribute.String("service.namespace", "tripgo"),
+			attribute.String("service.version", "dev"),
+			attribute.String("deployment.environment", "local"),
+		),
 		resource.WithFromEnv(),
 		resource.WithAttributes(attribute.String("service.name", serviceName)),
 	)
@@ -44,6 +50,7 @@ func InitTracing(ctx context.Context) (func(context.Context) error, error) {
 		sdktrace.WithResource(res),
 	)
 	otel.SetTracerProvider(provider)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
 
 	return provider.Shutdown, nil
 }

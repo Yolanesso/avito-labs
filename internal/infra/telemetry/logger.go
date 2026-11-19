@@ -15,10 +15,10 @@ func NewLogger(level string) (*slog.Logger, error) {
 		return nil, fmt.Errorf("invalid log level %q: %w", level, err)
 	}
 
-	logger := slog.New(slog.NewJSONHandler(
+	logger := slog.New(traceHandler{slog.NewJSONHandler(
 		os.Stdout,
 		&slog.HandlerOptions{Level: logLevel},
-	))
+	)})
 
 	return logger.With("service", "trip-service"), nil
 }

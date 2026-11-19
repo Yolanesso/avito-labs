@@ -10,6 +10,7 @@ import (
 	tripcreate "github.com/Yolanesso/avito-labs/internal/httpserver/trip/create"
 	tripfinish "github.com/Yolanesso/avito-labs/internal/httpserver/trip/finish"
 	tripget "github.com/Yolanesso/avito-labs/internal/httpserver/trip/get"
+	trippositions "github.com/Yolanesso/avito-labs/internal/httpserver/trip/positions"
 )
 
 type Handler struct {
@@ -20,6 +21,11 @@ type Handler struct {
 	create       *tripcreate.Handler
 	get          *tripget.Handler
 	finish       *tripfinish.Handler
+	positions    *trippositions.Handler
+}
+
+func (h *Handler) SetPositions(positions *trippositions.Handler) {
+	h.positions = positions
 }
 
 func NewHandler(

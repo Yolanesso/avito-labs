@@ -17,6 +17,27 @@ type TripMetrics struct {
 	logger    *slog.Logger
 }
 
+// ObserveActive читает актуальное состояние БД, включая поездки до старта процесса.
+func (m *TripMetrics) ObserveActive(counter activeTripCounter) (metric.Registration, error) {
+	meter := otel.Meter("tripgo")
+	active, err := meter.Int64ObservableGauge("tripgo.trips.active")
+	if err != nil {
+		return nil, fmt.Errorf("create active trips gauge: %w", err)
+	}
+	registration, err := meter.RegisterCallback(func(ctx context.Context, observer metric.Observer) error {
+		count, err := counter.CountActive(ctx)
+		if err != nil {
+			return fmt.Errorf("observe active trips: %w", err)
+		}
+		observer.ObserveInt64(active, count)
+		return nil
+	}, active)
+	if err != nil {
+		return nil, fmt.Errorf("register active trips gauge: %w", err)
+	}
+	return registration, nil
+}
+
 func NewTripMetrics(logger *slog.Logger) (*TripMetrics, error) {
 	meter := otel.Meter("tripgo")
 

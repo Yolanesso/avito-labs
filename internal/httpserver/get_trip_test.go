@@ -34,7 +34,7 @@ func TestGetTripNotFound(t *testing.T) {
 		tripService,
 	)
 
-	server := httpserver.New(":0", handler, slog.Default())
+	server := httpserver.New(":0", handler, slog.Default(), httpserver.Timeouts{})
 
 	request := httptest.NewRequest(
 		http.MethodGet,
@@ -67,7 +67,7 @@ func TestCreateTripInvalidJSON(t *testing.T) {
 		time.Second,
 		tripService,
 	)
-	server := httpserver.New(":0", handler, slog.Default())
+	server := httpserver.New(":0", handler, slog.Default(), httpserver.Timeouts{})
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -106,7 +106,7 @@ func TestGetTripInternalError(t *testing.T) {
 		time.Second,
 		tripService,
 	)
-	server := httpserver.New(":0", handler, slog.Default())
+	server := httpserver.New(":0", handler, slog.Default(), httpserver.Timeouts{})
 
 	request := httptest.NewRequest(
 		http.MethodGet,
