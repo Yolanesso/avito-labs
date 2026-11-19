@@ -31,7 +31,7 @@ func TestFinishCompletedTrip(t *testing.T) {
 		time.Second,
 		tripService,
 	)
-	server := httpserver.New(":0", handler, slog.Default())
+	server := httpserver.New(":0", handler, slog.Default(), httpserver.Timeouts{})
 
 	request := httptest.NewRequest(
 		http.MethodPost,
